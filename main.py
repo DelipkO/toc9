@@ -5,11 +5,14 @@ import re
 # Токен бота
 token = "8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM"
 
-# ID целевого чата
-TARGET_CHAT_ID = 287305832
+# ID целевого чата (нужно заменить на реальный ID чата)
+TARGET_CHAT_ID = -1001234567890  # ЗАМЕНИТЕ НА РЕАЛЬНЫЙ ID ЧАТА
 
 async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
+    # ВРЕМЕННО: выводим ID чата для отладки
+    print(f"Chat ID: {update.effective_chat.id}")
+    
     # Проверяем, что команда вызвана в целевом чате
     if update.effective_chat.id != TARGET_CHAT_ID:
         return
@@ -71,6 +74,9 @@ def extract_coordinates(text):
 
 async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик координат в сообщениях"""
+    # ВРЕМЕННО: выводим ID чата для отладки
+    print(f"Chat ID: {update.effective_chat.id}")
+    
     # Проверяем, что сообщение отправлено в целевом чате
     if update.effective_chat.id != TARGET_CHAT_ID:
         return
