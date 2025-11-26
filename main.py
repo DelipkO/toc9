@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from telegram.error import Forbidden
+from telegram.error import Forbidden, BadRequest
 import os
 import re
 import json
@@ -13,7 +13,7 @@ token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
 YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 
 # ID разрешенных чатов и чата для уведомлений
-ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030]
+ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185]  # Добавили чат для уведомлений
 NOTIFICATION_CHAT_ID = -1003231802185
 
 async def is_allowed_chat(update: Update) -> bool:
@@ -26,12 +26,18 @@ async def is_allowed_chat(update: Update) -> bool:
 async def send_notification(context: ContextTypes.DEFAULT_TYPE, message: str):
     """Отправляет уведомление в чат для нотификаций"""
     try:
+        print(f"Попытка отправить уведомление в чат {NOTIFICATION_CHAT_ID}")
         await context.bot.send_message(
             chat_id=NOTIFICATION_CHAT_ID,
             text=message
         )
+        print("Уведомление успешно отправлено")
+    except Forbidden as e:
+        print(f"Ошибка доступа при отправке уведомления: {e}")
+    except BadRequest as e:
+        print(f"Ошибка запроса при отправке уведомления: {e}")
     except Exception as e:
-        print(f"Ошибка отправки уведомления: {e}")
+        print(f"Неизвестная ошибка при отправке уведомления: {e}")
 
 async def delete_command_message(update: Update):
     """Удаляет сообщение с командой пользователя"""
@@ -92,7 +98,7 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = """
 🐕 Привет, я - Мухтар, для своих я просто Муха!
 
-🏡 Я буду помогать с поисками моих друзей потеряшек, чтобы они скорее вернулись домой ✨
+🏡 Я буду помогать с поисками моих друзей потеряшек, чтобы они скорее вернуться домой ✨
 
 📚 Я пока только учусь и выполняю мало команд, но все впереди и я хотел бы расти вместе с группой и ее участниками
 
@@ -130,15 +136,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
         # Если это не разрешенный чат, отправляем уведомление
-        if update.message.chat.type in ['group', 'supergroup']:
-            await send_notification(
-                context,
+        if update.message.chat.type in ['group', 'supergroup'] and update.message.chat.id != NOTIFICATION_CHAT_ID:
+            notification_text = (
                 f"🚨 Бота добавили в новую группу:\n"
                 f"• Название: {update.message.chat.title}\n"
                 f"• ID: {update.message.chat.id}\n"
                 f"• Тип: {update.message.chat.type}\n"
-                f"• Пользователь: {update.message.from_user.first_name} (@{update.message.from_user.username})"
+                f"• Пользователь: {update.message.from_user.first_name} "
+                f"(@{update.message.from_user.username or 'нет username'})"
             )
+            await send_notification(context, notification_text)
         print(f"Бот добавлен в неразрешенный чат: {update.effective_chat.id}")
         return
     
@@ -241,24 +248,33 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
+    print(f"Сработал обработчик новых участников. Новые участники: {update.message.new_chat_members}")
+    
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
             # Бота добавили в группу
             chat = update.message.chat
             user = update.message.from_user
             
+            print(f"Бота добавили в группу: {chat.title} (ID: {chat.id})")
+            
             # Проверяем, не является ли это одним из разрешенных чатов
             if chat.id not in ALLOWED_CHAT_IDS:
-                await send_notification(
-                    context,
+                notification_text = (
                     f"🚨 Бота добавили в новую группу:\n"
                     f"• Название: {chat.title}\n"
                     f"• ID: {chat.id}\n"
                     f"• Тип: {chat.type}\n"
-                    f"• Пользователь: {user.first_name} (@{user.username})\n"
+                    f"• Пользователь: {user.first_name} "
+                    f"(@{user.username or 'нет username'})\n"
                     f"• Время: {update.message.date}"
                 )
-                print(f"Бот добавлен в новую группу: {chat.id}")
+                print(f"Отправляем уведомление о новой группе: {notification_text}")
+                await send_notification(context, notification_text)
+            else:
+                print(f"Чат {chat.id} является разрешенным, уведомление не отправляется")
+        else:
+            print(f"Добавлен другой участник: {member.first_name}")
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
@@ -280,10 +296,12 @@ def main():
     # Обработчик добавления бота в группы
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
     
+    print("=" * 50)
     print("Бот Мухтар запущен...")
     print(f"Разрешенные чаты: {ALLOWED_CHAT_IDS}")
     print(f"Чат для уведомлений: {NOTIFICATION_CHAT_ID}")
     print(f"Yandex Geocoder API ключ: {'установлен' if YANDEX_GEOCODER_API_KEY else 'отсутствует'}")
+    print("=" * 50)
     app.run_polling()
 
 if __name__ == '__main__':
