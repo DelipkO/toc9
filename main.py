@@ -1,13 +1,67 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.error import Forbidden
 import os
 import re
+import aiohttp
+import asyncio
 
 # Токен бота
 token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
+# API ключ для Yandex Geocoder (получите на https://developer.tech.yandex.ru/services/)
+YANDEX_GEOCODER_API_KEY = os.getenv('YANDEX_GEOCODER_API_KEY', '')
+
+async def delete_command_message(update: Update):
+    """Удаляет сообщение с командой пользователя"""
+    try:
+        if update.message.chat.type != 'private':  # Только в группах/каналах
+            await update.message.delete()
+    except Forbidden:
+        print("Бот не имеет прав для удаления сообщений")
+    except Exception as e:
+        print(f"Ошибка при удалении сообщения: {e}")
+
+async def get_address_from_coordinates(lat: float, lon: float) -> str:
+    """Получает адрес по координатам через Yandex Geocoder API"""
+    if not YANDEX_GEOCODER_API_KEY:
+        return "Адрес не доступен (отсутствует API ключ)"
+    
+    url = f"https://geocode-maps.yandex.ru/1.x/"
+    params = {
+        'apikey': YANDEX_GEOCODER_API_KEY,
+        'geocode': f"{lon},{lat}",
+        'format': 'json',
+        'lang': 'ru_RU',
+        'results': 1
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    # Парсим ответ
+                    members = data.get('response', {}).get('GeoObjectCollection', {}).get('featureMember', [])
+                    if members:
+                        geo_object = members[0].get('GeoObject', {})
+                        address = geo_object.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('text', 'Адрес не найден')
+                        return address
+                    else:
+                        return "Адрес не найден"
+                else:
+                    return f"Ошибка API: {response.status}"
+                    
+    except asyncio.TimeoutError:
+        return "Таймаут при получении адреса"
+    except Exception as e:
+        return f"Ошибка при получении адреса: {str(e)}"
 
 async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
+    # Удаляем сообщение с командой
+    await delete_command_message(update)
+    
     welcome_text = """
 🐕 Привет, я - Мухтар, для своих я просто Муха!
 
@@ -19,6 +73,41 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     
     await update.message.reply_text(welcome_text)
+
+async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /geo - карта сигналов Степана"""
+    # Удаляем сообщение с командой
+    await delete_command_message(update)
+    
+    geo_text = """
+🗺️ Вот карта сигналов Степана и маршруты где мы его искали:
+
+[Карта сигналов Степана](https://yandex.ru/maps/10716/balashiha/?ll=38.011510%2C55.794242&mode=usermaps&source=constructorLink&um=constructor%3A6a8046db678054ae4bb02be22c7e369f982221ccb2f344a2d4dca6ca91ff0f75&z=14)
+
+📍 На карте отмечены:
+• Места последних сигналов
+• Маршруты поисковых групп
+• Предполагаемое направление движения
+"""
+    
+    await update.message.reply_text(geo_text, parse_mode='Markdown')
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /start"""
+    # Удаляем сообщение с командой
+    await delete_command_message(update)
+    
+    start_text = """
+🐕 Привет! Я бот Мухтар - помощник в поисках потерянных животных.
+
+Доступные команды:
+/start - начать работу
+/geo - карта сигналов Степана
+/privet_toc9 - информация о боте
+
+Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
+"""
+    await update.message.reply_text(start_text)
 
 def extract_coordinates(text):
     """Извлекает координаты из текста в различных форматах"""
@@ -73,12 +162,19 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         lat, lon = coordinates
         yandex_map_url = f"https://yandex.ru/maps/?pt={lon},{lat}&z=17&l=map"
         
-        await update.message.reply_text(
-            f"📍 Найдены координаты!\n"
-            f"Широта: {lat}\n"
-            f"Долгота: {lon}\n"
-            f"Ссылка на Яндекс.Карты: {yandex_map_url}"
-        )
+        # Получаем адрес
+        address = await get_address_from_coordinates(lat, lon)
+        
+        # Формируем сообщение
+        message_text = f"📍 Найдены координаты!\n\n"
+        
+        if address and "Ошибка" not in address and "не доступен" not in address:
+            message_text += f"🏠 Адрес: {address}\n\n"
+        
+        message_text += f"📡 Координаты: {lat:.6f}, {lon:.6f}\n"
+        message_text += f"🗺️ Ссылка на Яндекс.Карты: {yandex_map_url}"
+        
+        await update.message.reply_text(message_text)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
@@ -91,8 +187,10 @@ def main():
     # Добавляем обработчик ошибок
     app.add_error_handler(error_handler)
     
-    # Оставляем только команду privet_toc9 и обработку координат
+    # Добавляем обработчики команд и сообщений
+    app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("privet_toc9", privet_toc9))
+    app.add_handler(CommandHandler("geo", geo_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_coordinates))
     
     print("Бот Мухтар запущен...")
