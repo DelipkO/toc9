@@ -6,6 +6,8 @@ import re
 import json
 import urllib.request
 import urllib.parse
+import time
+from collections import defaultdict
 
 # Токен бота
 token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
@@ -16,39 +18,32 @@ YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185]
 NOTIFICATION_CHAT_ID = -1003231802185
 
+# Словарь для отслеживания времени последнего использования команды /map по чатам
+last_map_usage = defaultdict(int)
+MAP_COOLDOWN = 4 * 60 * 60  # 4 часа в секундах
+
 async def is_allowed_chat(update: Update) -> bool:
     """Проверяет, разрешен ли чат для выполнения команд"""
     chat_id = update.effective_chat.id
-    allowed = chat_id in ALLOWED_CHAT_IDS
-    print(f"Проверка чата {chat_id}: {'разрешен' if allowed else 'запрещен'}")
-    return allowed
+    return chat_id in ALLOWED_CHAT_IDS
 
 async def send_notification(context: ContextTypes.DEFAULT_TYPE, message: str):
     """Отправляет уведомление в чат для нотификаций"""
     try:
-        print(f"Попытка отправить уведомление в чат {NOTIFICATION_CHAT_ID}")
         await context.bot.send_message(
             chat_id=NOTIFICATION_CHAT_ID,
             text=message
         )
-        print("Уведомление успешно отправлено")
-    except Forbidden as e:
-        print(f"Ошибка доступа при отправке уведомления: {e}")
-    except BadRequest as e:
-        print(f"Ошибка запроса при отправке уведомления: {e}")
     except Exception as e:
-        print(f"Неизвестная ошибка при отправке уведомления: {e}")
+        print(f"Ошибка при отправке уведомления: {e}")
 
 async def delete_command_message(update: Update):
     """Удаляет сообщение с командой пользователя"""
     try:
         if update.message.chat.type != 'private':  # Только в группах/каналах
             await update.message.delete()
-            print("Сообщение с командой удалено")
-    except Forbidden:
-        print("Бот не имеет прав для удаления сообщений")
-    except Exception as e:
-        print(f"Ошибка при удалении сообщения: {e}")
+    except Exception:
+        pass  # Игнорируем ошибки при удалении сообщений
 
 def get_address_from_coordinates(lat: float, lon: float) -> str:
     """Получает адрес по координатам через Yandex Geocoder API"""
@@ -79,10 +74,6 @@ def get_address_from_coordinates(lat: float, lon: float) -> str:
             else:
                 return "Адрес не найден"
                 
-    except urllib.error.URLError as e:
-        return f"Ошибка сети: {str(e)}"
-    except TimeoutError:
-        return "Таймаут при получении адреса"
     except Exception as e:
         return f"Ошибка при получении адреса: {str(e)}"
 
@@ -110,12 +101,10 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
 """
     
-    # Используем send_message вместо reply_text, так как сообщение уже удалено
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=welcome_text
     )
-    print("Отправлено приветственное сообщение")
 
 async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /map - карта сигналов Степана"""
@@ -123,11 +112,34 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_allowed_chat(update):
         return
     
+    chat_id = update.effective_chat.id
+    user = update.message.from_user
+    current_time = time.time()
+    
+    # Проверяем, когда последний раз использовалась команда в этом чате
+    if current_time - last_map_usage[chat_id] < MAP_COOLDOWN:
+        # Сообщение о том, что команду можно использовать не чаще чем раз в 4 часа
+        remaining_time = MAP_COOLDOWN - (current_time - last_map_usage[chat_id])
+        hours = int(remaining_time // 3600)
+        minutes = int((remaining_time % 3600) // 60)
+        
+        cooldown_text = f"@{user.username or user.first_name}, команду /map можно использовать не чаще одного раза в 4 часа. Попробуйте через {hours}ч {minutes}м."
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=cooldown_text
+        )
+        return
+    
+    # Обновляем время последнего использования
+    last_map_usage[chat_id] = current_time
+    
     # Удаляем сообщение с командой
     await delete_command_message(update)
     
-    map_text = """
-🗺 [Карта сигналов Степана](https://yandex.ru/maps/?um=constructor%3Ae21cf183b42d2793d0054779c87e1f35786507e87af56ed8c7df5e0b339c2ec2&source=constructorLink)
+    map_text = f"""@{user.username or user.first_name}, вот актуальная карта:
+
+🗺 [Карта сигналов Степана](https://yandex.ru/maps/?um=constructor%3A6a8046db678054ae4bb02be22c7e369f982221ccb2f344a2d4dca6ca91ff0f75&source=constructorLink)
 
 📍 На карте:
 • Места последних сигналов
@@ -137,14 +149,12 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 💬 Выходя на оклейку, не забывайте включать геотрекер. Он нарисует ваш путь движения, а я с @AnnaMelostnaya внесем его в карту поиска
 """
     
-    # Используем send_message вместо reply_text, так как сообщение уже удалено
     await context.bot.send_message(
-        chat_id=update.effective_chat.id,
+        chat_id=chat_id,
         text=map_text,
         parse_mode='Markdown',
         disable_web_page_preview=True
     )
-    print("Отправлено сообщение с картой Степана")
 
 def extract_coordinates(text):
     """Извлекает координаты из текста в различных форматах"""
@@ -196,21 +206,17 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     text = update.message.text
-    print(f"Получено сообщение: {text}")
     
     # Извлекаем координаты из текста
     coordinates = extract_coordinates(text)
     if coordinates:
         lat, lon = coordinates
-        print(f"Извлечены координаты: {lat}, {lon}")
         yandex_map_url = f"https://yandex.ru/maps/?pt={lon},{lat}&z=17&l=map"
         
         # Получаем адрес
         try:
             address = get_address_from_coordinates(lat, lon)
-            print(f"Получен адрес: {address}")
-        except Exception as e:
-            print(f"Ошибка при получении адреса: {e}")
+        except Exception:
             address = None
         
         # Формируем сообщение
@@ -222,26 +228,18 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         message_text += f"📡 Координаты: {lat:.6f}, {lon:.6f}\n"
         message_text += f"🗺️ Ссылка на Яндекс.Карты: {yandex_map_url}"
         
-        # Используем send_message вместо reply_text
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message_text
         )
-        print("Отправлено сообщение с координатами")
-    else:
-        print("Координаты не найдены в сообщении")
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
-    print(f"Сработал обработчик новых участников. Новые участники: {update.message.new_chat_members}")
-    
     for member in update.message.new_chat_members:
         if member.id == context.bot.id:
             # Бота добавили в группу
             chat = update.message.chat
             user = update.message.from_user
-            
-            print(f"Бота добавили в группу: {chat.title} (ID: {chat.id})")
             
             # Проверяем, не является ли это одним из разрешенных чатов
             if chat.id not in ALLOWED_CHAT_IDS:
@@ -254,12 +252,7 @@ async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_
                     f"(@{user.username or 'нет username'})\n"
                     f"• Время: {update.message.date}"
                 )
-                print(f"Отправляем уведомление о новой группе: {notification_text}")
                 await send_notification(context, notification_text)
-            else:
-                print(f"Чат {chat.id} является разрешенным, уведомление не отправляется")
-        else:
-            print(f"Добавлен другой участник: {member.first_name}")
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
@@ -280,12 +273,7 @@ def main():
     # Обработчик добавления бота в группы
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
     
-    print("=" * 50)
     print("Бот Мухтар запущен...")
-    print(f"Разрешенные чаты: {ALLOWED_CHAT_IDS}")
-    print(f"Чат для уведомлений: {NOTIFICATION_CHAT_ID}")
-    print(f"Yandex Geocoder API ключ: {'установлен' if YANDEX_GEOCODER_API_KEY else 'отсутствует'}")
-    print("=" * 50)
     app.run_polling()
 
 if __name__ == '__main__':
