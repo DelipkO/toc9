@@ -18,7 +18,10 @@ NOTIFICATION_CHAT_ID = -1003231802185
 
 async def is_allowed_chat(update: Update) -> bool:
     """Проверяет, разрешен ли чат для выполнения команд"""
-    return update.effective_chat.id in ALLOWED_CHAT_IDS
+    chat_id = update.effective_chat.id
+    allowed = chat_id in ALLOWED_CHAT_IDS
+    print(f"Проверка чата {chat_id}: {'разрешен' if allowed else 'запрещен'}")
+    return allowed
 
 async def send_notification(context: ContextTypes.DEFAULT_TYPE, message: str):
     """Отправляет уведомление в чат для нотификаций"""
@@ -35,6 +38,7 @@ async def delete_command_message(update: Update):
     try:
         if update.message.chat.type != 'private':  # Только в группах/каналах
             await update.message.delete()
+            print("Сообщение с командой удалено")
     except Forbidden:
         print("Бот не имеет прав для удаления сообщений")
     except Exception as e:
@@ -80,7 +84,6 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
-        print(f"Чат {update.effective_chat.id} не разрешен для команды /privet_toc9")
         return
     
     # Удаляем сообщение с командой
@@ -103,7 +106,6 @@ async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /geo - карта сигналов Степана"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
-        print(f"Чат {update.effective_chat.id} не разрешен для команды /geo")
         return
     
     # Удаляем сообщение с командой
@@ -203,7 +205,6 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Обработчик координат в сообщениях"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
-        print(f"Чат {update.effective_chat.id} не разрешен для обработки координат")
         return
     
     text = update.message.text
