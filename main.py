@@ -8,16 +8,16 @@ import asyncio
 
 # Токен бота
 token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
-# API ключ для Yandex Geocoder (получите на https://developer.tech.yandex.ru/services/)
-YANDEX_GEOCODER_API_KEY = os.getenv('YANDEX_GEOCODER_API_KEY', '')
+# API ключ для Yandex Geocoder
+YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 
-# ID разрешенного чата и чата для уведомлений
-ALLOWED_CHAT_ID = -1003181939785
+# ID разрешенных чатов и чата для уведомлений
+ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030]
 NOTIFICATION_CHAT_ID = -1003231802185
 
 async def is_allowed_chat(update: Update) -> bool:
     """Проверяет, разрешен ли чат для выполнения команд"""
-    return update.effective_chat.id == ALLOWED_CHAT_ID
+    return update.effective_chat.id in ALLOWED_CHAT_IDS
 
 async def send_notification(context: ContextTypes.DEFAULT_TYPE, message: str):
     """Отправляет уведомление в чат для нотификаций"""
@@ -41,9 +41,6 @@ async def delete_command_message(update: Update):
 
 async def get_address_from_coordinates(lat: float, lon: float) -> str:
     """Получает адрес по координатам через Yandex Geocoder API"""
-    if not YANDEX_GEOCODER_API_KEY:
-        return "Адрес не доступен (отсутствует API ключ)"
-    
     url = f"https://geocode-maps.yandex.ru/1.x/"
     params = {
         'apikey': YANDEX_GEOCODER_API_KEY,
@@ -212,7 +209,7 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Формируем сообщение
         message_text = f"📍 Найдены координаты!\n\n"
         
-        if address and "Ошибка" not in address and "не доступен" not in address:
+        if address and "Ошибка" not in address and "не найден" not in address:
             message_text += f"🏠 Адрес: {address}\n\n"
         
         message_text += f"📡 Координаты: {lat:.6f}, {lon:.6f}\n"
@@ -228,15 +225,17 @@ async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_
             chat = update.message.chat
             user = update.message.from_user
             
-            await send_notification(
-                context,
-                f"🚨 Бота добавили в новую группу:\n"
-                f"• Название: {chat.title}\n"
-                f"• ID: {chat.id}\n"
-                f"• Тип: {chat.type}\n"
-                f"• Пользователь: {user.first_name} (@{user.username})\n"
-                f"• Время: {update.message.date}"
-            )
+            # Проверяем, не является ли это одним из разрешенных чатов
+            if chat.id not in ALLOWED_CHAT_IDS:
+                await send_notification(
+                    context,
+                    f"🚨 Бота добавили в новую группу:\n"
+                    f"• Название: {chat.title}\n"
+                    f"• ID: {chat.id}\n"
+                    f"• Тип: {chat.type}\n"
+                    f"• Пользователь: {user.first_name} (@{user.username})\n"
+                    f"• Время: {update.message.date}"
+                )
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
@@ -259,8 +258,9 @@ def main():
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
     
     print("Бот Мухтар запущен...")
-    print(f"Разрешенный чат: {ALLOWED_CHAT_ID}")
+    print(f"Разрешенные чаты: {ALLOWED_CHAT_IDS}")
     print(f"Чат для уведомлений: {NOTIFICATION_CHAT_ID}")
+    print(f"Yandex Geocoder API ключ: {'установлен' if YANDEX_GEOCODER_API_KEY else 'отсутствует'}")
     app.run_polling()
 
 if __name__ == '__main__':
