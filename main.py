@@ -3,8 +3,9 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from telegram.error import Forbidden
 import os
 import re
-import aiohttp
-import asyncio
+import json
+import urllib.request
+import urllib.parse
 
 # Токен бота
 token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
@@ -39,9 +40,9 @@ async def delete_command_message(update: Update):
     except Exception as e:
         print(f"Ошибка при удалении сообщения: {e}")
 
-async def get_address_from_coordinates(lat: float, lon: float) -> str:
+def get_address_from_coordinates(lat: float, lon: float) -> str:
     """Получает адрес по координатам через Yandex Geocoder API"""
-    url = f"https://geocode-maps.yandex.ru/1.x/"
+    url = "https://geocode-maps.yandex.ru/1.x/"
     params = {
         'apikey': YANDEX_GEOCODER_API_KEY,
         'geocode': f"{lon},{lat}",
@@ -51,23 +52,26 @@ async def get_address_from_coordinates(lat: float, lon: float) -> str:
     }
     
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params, timeout=10) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    # Парсим ответ
-                    members = data.get('response', {}).get('GeoObjectCollection', {}).get('featureMember', [])
-                    if members:
-                        geo_object = members[0].get('GeoObject', {})
-                        address = geo_object.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('text', 'Адрес не найден')
-                        return address
-                    else:
-                        return "Адрес не найден"
-                else:
-                    return f"Ошибка API: {response.status}"
-                    
-    except asyncio.TimeoutError:
+        # Формируем URL с параметрами
+        query_string = urllib.parse.urlencode(params)
+        full_url = f"{url}?{query_string}"
+        
+        # Выполняем запрос
+        with urllib.request.urlopen(full_url, timeout=10) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            
+            # Парсим ответ
+            members = data.get('response', {}).get('GeoObjectCollection', {}).get('featureMember', [])
+            if members:
+                geo_object = members[0].get('GeoObject', {})
+                address = geo_object.get('metaDataProperty', {}).get('GeocoderMetaData', {}).get('text', 'Адрес не найден')
+                return address
+            else:
+                return "Адрес не найден"
+                
+    except urllib.error.URLError as e:
+        return f"Ошибка сети: {str(e)}"
+    except TimeoutError:
         return "Таймаут при получении адреса"
     except Exception as e:
         return f"Ошибка при получении адреса: {str(e)}"
@@ -203,8 +207,8 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         lat, lon = coordinates
         yandex_map_url = f"https://yandex.ru/maps/?pt={lon},{lat}&z=17&l=map"
         
-        # Получаем адрес
-        address = await get_address_from_coordinates(lat, lon)
+        # Получаем адрес (синхронно, но в отдельном потоке)
+        address = await context.application.run_in_executor(None, get_address_from_coordinates, lat, lon)
         
         # Формируем сообщение
         message_text = f"📍 Найдены координаты!\n\n"
