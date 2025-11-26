@@ -80,6 +80,7 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
+        print(f"Чат {update.effective_chat.id} не разрешен для команды /privet_toc9")
         return
     
     # Удаляем сообщение с командой
@@ -96,11 +97,13 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     
     await update.message.reply_text(welcome_text)
+    print("Отправлено приветственное сообщение")
 
 async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /geo - карта сигналов Степана"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
+        print(f"Чат {update.effective_chat.id} не разрешен для команды /geo")
         return
     
     # Удаляем сообщение с командой
@@ -118,6 +121,7 @@ async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 """
     
     await update.message.reply_text(geo_text, parse_mode='Markdown')
+    print("Отправлено сообщение с картой Степана")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /start"""
@@ -133,6 +137,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• Тип: {update.message.chat.type}\n"
                 f"• Пользователь: {update.message.from_user.first_name} (@{update.message.from_user.username})"
             )
+        print(f"Бот добавлен в неразрешенный чат: {update.effective_chat.id}")
         return
     
     # Удаляем сообщение с командой
@@ -149,6 +154,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
 """
     await update.message.reply_text(start_text)
+    print("Отправлено стартовое сообщение")
 
 def extract_coordinates(text):
     """Извлекает координаты из текста в различных форматах"""
@@ -197,18 +203,26 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Обработчик координат в сообщениях"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
+        print(f"Чат {update.effective_chat.id} не разрешен для обработки координат")
         return
     
     text = update.message.text
+    print(f"Получено сообщение: {text}")
     
     # Извлекаем координаты из текста
     coordinates = extract_coordinates(text)
     if coordinates:
         lat, lon = coordinates
+        print(f"Извлечены координаты: {lat}, {lon}")
         yandex_map_url = f"https://yandex.ru/maps/?pt={lon},{lat}&z=17&l=map"
         
-        # Получаем адрес (синхронно, но в отдельном потоке)
-        address = await context.application.run_in_executor(None, get_address_from_coordinates, lat, lon)
+        # Получаем адрес
+        try:
+            address = get_address_from_coordinates(lat, lon)
+            print(f"Получен адрес: {address}")
+        except Exception as e:
+            print(f"Ошибка при получении адреса: {e}")
+            address = None
         
         # Формируем сообщение
         message_text = f"📍 Найдены координаты!\n\n"
@@ -220,6 +234,9 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         message_text += f"🗺️ Ссылка на Яндекс.Карты: {yandex_map_url}"
         
         await update.message.reply_text(message_text)
+        print("Отправлено сообщение с координатами")
+    else:
+        print("Координаты не найдены в сообщении")
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
@@ -240,6 +257,7 @@ async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_
                     f"• Пользователь: {user.first_name} (@{user.username})\n"
                     f"• Время: {update.message.date}"
                 )
+                print(f"Бот добавлен в новую группу: {chat.id}")
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
