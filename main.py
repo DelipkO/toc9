@@ -21,6 +21,8 @@ NOTIFICATION_CHAT_ID = -1003231802185
 # Словарь для отслеживания времени последнего использования команды /map по чатам
 last_map_usage = defaultdict(int)
 MAP_COOLDOWN = 4 * 60 * 60  # 4 часа в секундах
+# Чат, для которого действует ограничение
+RESTRICTED_CHAT_ID = -1003181939785
 
 async def is_allowed_chat(update: Update) -> bool:
     """Проверяет, разрешен ли чат для выполнения команд"""
@@ -116,23 +118,25 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     current_time = time.time()
     
-    # Проверяем, когда последний раз использовалась команда в этом чате
-    if current_time - last_map_usage[chat_id] < MAP_COOLDOWN:
-        # Сообщение о том, что команду можно использовать не чаще чем раз в 4 часа
-        remaining_time = MAP_COOLDOWN - (current_time - last_map_usage[chat_id])
-        hours = int(remaining_time // 3600)
-        minutes = int((remaining_time % 3600) // 60)
+    # Проверяем ограничение только для определенного чата
+    if chat_id == RESTRICTED_CHAT_ID:
+        # Проверяем, когда последний раз использовалась команда в этом чате
+        if current_time - last_map_usage[chat_id] < MAP_COOLDOWN:
+            # Сообщение о том, что команду можно использовать не чаще чем раз в 4 часа
+            remaining_time = MAP_COOLDOWN - (current_time - last_map_usage[chat_id])
+            hours = int(remaining_time // 3600)
+            minutes = int((remaining_time % 3600) // 60)
+            
+            cooldown_text = f"@{user.username or user.first_name}, команду /map можно использовать не чаще одного раза в 4 часа. Попробуйте через {hours}ч {minutes}м."
+            
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=cooldown_text
+            )
+            return
         
-        cooldown_text = f"@{user.username or user.first_name}, команду /map можно использовать не чаще одного раза в 4 часа. Попробуйте через {hours}ч {minutes}м."
-        
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=cooldown_text
-        )
-        return
-    
-    # Обновляем время последнего использования
-    last_map_usage[chat_id] = current_time
+        # Обновляем время последнего использования только для ограниченного чата
+        last_map_usage[chat_id] = current_time
     
     # Удаляем сообщение с командой
     await delete_command_message(update)
