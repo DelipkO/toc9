@@ -6,6 +6,8 @@ import re
 import json
 import urllib.request
 import urllib.parse
+import time
+from collections import defaultdict
 
 # Токен бота
 token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
@@ -13,19 +15,32 @@ token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
 YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 
 # ID разрешенных чатов и чата для уведомлений
-ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185]
+ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -1003179224036]
 NOTIFICATION_CHAT_ID = -1003231802185
 
-# Конфигурация ключевых слов для разных чатов
-CHAT_KEYWORD_CONFIGS = {
-    -1003231802185: {  # Специальный чат
-        'keywords': ['карт', 'оклей', 'сигнал'],
-        'response': "@{username} Держи карту сигналов и оклейки https://t.me/toc99999/506"
-    },
-    -1003181939785: {  # Другой чат
-        'keywords': ['карт', 'оклей', 'сигнал'],
-        'response': "@{username} Держи карту сигналов и оклейки https://t.me/c/3181939785/408"
-    }
+# Словарь для хранения уникальных сообщений карты для каждого чата
+MAP_MESSAGES = {
+    -1003181939785: """@{username}, вот актуальная карта:
+
+🗺 [Карта сигналов Степана](https://yandex.ru/maps/?um=constructor%3A6a8046db678054ae4bb02be22c7e369f982221ccb2f344a2d4dca6ca91ff0f75&source=constructorLink)
+
+📍 На карте:
+• Места последних сигналов
+• Территория оклейки
+• Предполагаемое направление движения Степана по сигналам 
+
+💬 Выходя на оклейку, не забывайте включать геотрекер. Он нарисует ваш путь движения, а я с @AnnaMelostnaya внесем его в карту поиска""",
+    
+    -1003179224036: """@{username}, вот актуальная карта:
+
+🗺 [Карта сигналов Изюмки](https://yandex.ru/maps/?um=constructor%3Ae21cf183b42d2793d0054779c87e1f35786507e87af56ed8c7df5e0b339c2ec2&source=constructorLink)
+
+📍 На карте:
+• Места последних сигналов
+• Территория оклейки
+• Предполагаемое направление движения Изюмки по сигналам 
+
+💬 Выходя на оклейку, не забывайте включать геотрекер. Он нарисует ваш путь движения, а я с @AnnaMelostnaya внесем его в карту поиска"""
 }
 
 async def is_allowed_chat(update: Update) -> bool:
@@ -101,12 +116,41 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 📍 Сейчас меня научили запоминать места где мы планируем или уже произвели оклейку местности, чтобы было понятно где и когда была произведена работа.
 
+Доступные команды:
+/map - карта сигналов
+
 Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
 """
     
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=welcome_text
+    )
+
+async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /map - карта сигналов"""
+    # Проверяем разрешенный чат
+    if not await is_allowed_chat(update):
+        return
+    
+    chat_id = update.effective_chat.id
+    user = update.message.from_user
+    
+    # Удаляем сообщение с командой
+    await delete_command_message(update)
+    
+    # Получаем сообщение для конкретного чата
+    if chat_id in MAP_MESSAGES:
+        map_text = MAP_MESSAGES[chat_id].format(username=user.username or user.first_name)
+    else:
+        # Сообщение по умолчанию для других разрешенных чатов
+        map_text = f"@{user.username or user.first_name}, вот карта сигналов:\n\n" + MAP_MESSAGES[-1003181939785].split('\n\n', 1)[1]
+    
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=map_text,
+        parse_mode='Markdown',
+        disable_web_page_preview=True
     )
 
 def extract_coordinates(text):
@@ -152,38 +196,15 @@ def extract_coordinates(text):
     
     return None
 
-def contains_keywords(text, chat_id):
-    """Проверяет, содержит ли текст ключевые слова для указанного чата"""
-    if chat_id not in CHAT_KEYWORD_CONFIGS:
-        return False
-    
-    text_lower = text.lower()
-    keywords = CHAT_KEYWORD_CONFIGS[chat_id]['keywords']
-    
-    for keyword in keywords:
-        if keyword in text_lower:
-            return True
-    return False
-
-def get_keyword_response(chat_id, username):
-    """Возвращает ответ на ключевые слова для указанного чата"""
-    if chat_id not in CHAT_KEYWORD_CONFIGS:
-        return None
-    
-    response_template = CHAT_KEYWORD_CONFIGS[chat_id]['response']
-    return response_template.format(username=username)
-
-async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик текстовых сообщений - приоритет у координат"""
+async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик координат в сообщениях"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
         return
     
     text = update.message.text
-    chat_id = update.effective_chat.id
-    user = update.message.from_user
     
-    # Сначала проверяем наличие координат (высший приоритет)
+    # Извлекаем координаты из текста
     coordinates = extract_coordinates(text)
     if coordinates:
         lat, lon = coordinates
@@ -205,21 +226,9 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
         message_text += f"🗺️ Ссылка на Яндекс.Карты: {yandex_map_url}"
         
         await context.bot.send_message(
-            chat_id=chat_id,
+            chat_id=update.effective_chat.id,
             text=message_text
         )
-        return  # Прерываем выполнение, так как координаты имеют приоритет
-    
-    # Если координатов нет, проверяем ключевые слова для этого чата
-    if contains_keywords(text, chat_id):
-        username = user.username or user.first_name
-        response_text = get_keyword_response(chat_id, username)
-        
-        if response_text:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=response_text
-            )
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
@@ -255,7 +264,8 @@ def main():
     
     # Добавляем обработчики команд и сообщений
     app.add_handler(CommandHandler("privet_toc9", privet_toc9))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
+    app.add_handler(CommandHandler("map", map_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_coordinates))
     
     # Обработчик добавления бота в группы
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
