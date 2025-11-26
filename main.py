@@ -13,7 +13,7 @@ token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
 YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 
 # ID разрешенных чатов и чата для уведомлений
-ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185]  # Добавили чат для уведомлений
+ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185]
 NOTIFICATION_CHAT_ID = -1003231802185
 
 async def is_allowed_chat(update: Update) -> bool:
@@ -105,7 +105,11 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📍 Сейчас меня научили запоминать места где мы планируем или уже произвели оклейку местности, чтобы было понятно где и когда была произведена работа.
     """
     
-    await update.message.reply_text(welcome_text)
+    # Используем send_message вместо reply_text, так как сообщение уже удалено
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=welcome_text
+    )
     print("Отправлено приветственное сообщение")
 
 async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -128,7 +132,12 @@ async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • Предполагаемое направление движения
 """
     
-    await update.message.reply_text(geo_text, parse_mode='Markdown')
+    # Используем send_message вместо reply_text, так как сообщение уже удалено
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=geo_text,
+        parse_mode='Markdown'
+    )
     print("Отправлено сообщение с картой Степана")
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -162,7 +171,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
 """
-    await update.message.reply_text(start_text)
+    
+    # Используем send_message вместо reply_text, так как сообщение уже удалено
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=start_text
+    )
     print("Отправлено стартовое сообщение")
 
 def extract_coordinates(text):
@@ -241,7 +255,11 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         message_text += f"📡 Координаты: {lat:.6f}, {lon:.6f}\n"
         message_text += f"🗺️ Ссылка на Яндекс.Карты: {yandex_map_url}"
         
-        await update.message.reply_text(message_text)
+        # Используем send_message вместо reply_text
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message_text
+        )
         print("Отправлено сообщение с координатами")
     else:
         print("Координаты не найдены в сообщении")
