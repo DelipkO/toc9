@@ -103,7 +103,13 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📚 Я пока только учусь и выполняю мало команд, но все впереди и я хотел бы расти вместе с группой и ее участниками
 
 📍 Сейчас меня научили запоминать места где мы планируем или уже произвели оклейку местности, чтобы было понятно где и когда была произведена работа.
-    """
+
+Доступные команды:
+/map - карта сигналов Степана
+/privet_toc9 - информация о боте
+
+Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
+"""
     
     # Используем send_message вместо reply_text, так как сообщение уже удалено
     await context.bot.send_message(
@@ -112,8 +118,8 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     print("Отправлено приветственное сообщение")
 
-async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /geo - карта сигналов Степана"""
+async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /map - карта сигналов Степана"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
         return
@@ -121,7 +127,7 @@ async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Удаляем сообщение с командой
     await delete_command_message(update)
     
-    geo_text = """
+    map_text = """
 🗺️ Вот карта сигналов Степана и маршруты где мы его искали:
 
 [Карта сигналов Степана](https://yandex.ru/maps/10716/balashiha/?ll=38.011510%2C55.794242&mode=usermaps&source=constructorLink&um=constructor%3A6a8046db678054ae4bb02be22c7e369f982221ccb2f344a2d4dca6ca91ff0f75&z=14)
@@ -135,52 +141,13 @@ async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Используем send_message вместо reply_text, так как сообщение уже удалено
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=geo_text,
+        text=map_text,
         parse_mode='Markdown'
     )
     print("Отправлено сообщение с картой Степана")
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Команда /start"""
-    # Проверяем разрешенный чат
-    if not await is_allowed_chat(update):
-        # Если это не разрешенный чат, отправляем уведомление
-        if update.message.chat.type in ['group', 'supergroup'] and update.message.chat.id != NOTIFICATION_CHAT_ID:
-            notification_text = (
-                f"🚨 Бота добавили в новую группу:\n"
-                f"• Название: {update.message.chat.title}\n"
-                f"• ID: {update.message.chat.id}\n"
-                f"• Тип: {update.message.chat.type}\n"
-                f"• Пользователь: {update.message.from_user.first_name} "
-                f"(@{update.message.from_user.username or 'нет username'})"
-            )
-            await send_notification(context, notification_text)
-        print(f"Бот добавлен в неразрешенный чат: {update.effective_chat.id}")
-        return
-    
-    # Удаляем сообщение с командой
-    await delete_command_message(update)
-    
-    start_text = """
-🐕 Привет! Я бот Мухтар - помощник в поисках потерянных животных.
-
-Доступные команды:
-/start - начать работу
-/geo - карта сигналов Степана
-/privet_toc9 - информация о боте
-
-Просто отправь мне координаты в любом формате, и я создам ссылку на карту и найду адрес!
-"""
-    
-    # Используем send_message вместо reply_text, так как сообщение уже удалено
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=start_text
-    )
-    print("Отправлено стартовое сообщение")
-
 def extract_coordinates(text):
-    """Извлекает координаты из текста в различных форматах"""
+    """Извлекает координаты из текста в различных формаats"""
     # Удаляем лишние пробелы и приводим к нижнему регистру для упрощения обработки
     clean_text = ' '.join(text.split()).lower()
     
@@ -306,9 +273,8 @@ def main():
     app.add_error_handler(error_handler)
     
     # Добавляем обработчики команд и сообщений
-    app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("privet_toc9", privet_toc9))
-    app.add_handler(CommandHandler("geo", geo_command))
+    app.add_handler(CommandHandler("map", map_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_coordinates))
     
     # Обработчик добавления бота в группы
