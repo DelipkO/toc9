@@ -11,6 +11,24 @@ token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
 # API ключ для Yandex Geocoder (получите на https://developer.tech.yandex.ru/services/)
 YANDEX_GEOCODER_API_KEY = os.getenv('YANDEX_GEOCODER_API_KEY', '')
 
+# ID разрешенного чата и чата для уведомлений
+ALLOWED_CHAT_ID = -1003181939785
+NOTIFICATION_CHAT_ID = -1003231802185
+
+async def is_allowed_chat(update: Update) -> bool:
+    """Проверяет, разрешен ли чат для выполнения команд"""
+    return update.effective_chat.id == ALLOWED_CHAT_ID
+
+async def send_notification(context: ContextTypes.DEFAULT_TYPE, message: str):
+    """Отправляет уведомление в чат для нотификаций"""
+    try:
+        await context.bot.send_message(
+            chat_id=NOTIFICATION_CHAT_ID,
+            text=message
+        )
+    except Exception as e:
+        print(f"Ошибка отправки уведомления: {e}")
+
 async def delete_command_message(update: Update):
     """Удаляет сообщение с командой пользователя"""
     try:
@@ -59,6 +77,10 @@ async def get_address_from_coordinates(lat: float, lon: float) -> str:
 
 async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
+    # Проверяем разрешенный чат
+    if not await is_allowed_chat(update):
+        return
+    
     # Удаляем сообщение с командой
     await delete_command_message(update)
     
@@ -76,6 +98,10 @@ async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /geo - карта сигналов Степана"""
+    # Проверяем разрешенный чат
+    if not await is_allowed_chat(update):
+        return
+    
     # Удаляем сообщение с командой
     await delete_command_message(update)
     
@@ -94,6 +120,20 @@ async def geo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /start"""
+    # Проверяем разрешенный чат
+    if not await is_allowed_chat(update):
+        # Если это не разрешенный чат, отправляем уведомление
+        if update.message.chat.type in ['group', 'supergroup']:
+            await send_notification(
+                context,
+                f"🚨 Бота добавили в новую группу:\n"
+                f"• Название: {update.message.chat.title}\n"
+                f"• ID: {update.message.chat.id}\n"
+                f"• Тип: {update.message.chat.type}\n"
+                f"• Пользователь: {update.message.from_user.first_name} (@{update.message.from_user.username})"
+            )
+        return
+    
     # Удаляем сообщение с командой
     await delete_command_message(update)
     
@@ -154,6 +194,10 @@ def extract_coordinates(text):
 
 async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик координат в сообщениях"""
+    # Проверяем разрешенный чат
+    if not await is_allowed_chat(update):
+        return
+    
     text = update.message.text
     
     # Извлекаем координаты из текста
@@ -176,6 +220,24 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         await update.message.reply_text(message_text)
 
+async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает добавление бота в новые группы"""
+    for member in update.message.new_chat_members:
+        if member.id == context.bot.id:
+            # Бота добавили в группу
+            chat = update.message.chat
+            user = update.message.from_user
+            
+            await send_notification(
+                context,
+                f"🚨 Бота добавили в новую группу:\n"
+                f"• Название: {chat.title}\n"
+                f"• ID: {chat.id}\n"
+                f"• Тип: {chat.type}\n"
+                f"• Пользователь: {user.first_name} (@{user.username})\n"
+                f"• Время: {update.message.date}"
+            )
+
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик ошибок"""
     print(f"Произошла ошибка: {context.error}")
@@ -193,7 +255,12 @@ def main():
     app.add_handler(CommandHandler("geo", geo_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_coordinates))
     
+    # Обработчик добавления бота в группы
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
+    
     print("Бот Мухтар запущен...")
+    print(f"Разрешенный чат: {ALLOWED_CHAT_ID}")
+    print(f"Чат для уведомлений: {NOTIFICATION_CHAT_ID}")
     app.run_polling()
 
 if __name__ == '__main__':
