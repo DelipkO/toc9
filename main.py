@@ -22,7 +22,7 @@ NOTIFICATION_CHAT_ID = -1003231802185
 MAP_MESSAGES = {
     -1003181939785: """@{username}, вот актуальная карта:
 
-🗺 [Карта сигналов Степана](https://yandex.ru/maps/?um=constructor%3A6a8046db678054ae4bb02be22c7e369f982221ccb2f344a2d4dca6ca91ff0f75&source=constructorLink)
+🗺 [Карта Степана](https://yandex.ru/maps/?um=constructor%3A6a8046db678054ae4bb02be22c7e369f982221ccb2f344a2d4dca6ca91ff0f75&source=constructorLink)
 
 📍 На карте:
 • Места последних сигналов
@@ -33,9 +33,11 @@ MAP_MESSAGES = {
     
     -1003179224036: """@{username}, вот актуальная карта:
 
-🗺 [Карта сигналов Изюмки](https://yandex.ru/maps/?um=constructor%3Ae21cf183b42d2793d0054779c87e1f35786507e87af56ed8c7df5e0b339c2ec2&source=constructorLink)
+🗺 [Карта сигналов Изюмки](https://yandex.ru/maps/?um=constructor%3A0b0ecb864c3a670cead20c975fecca852eb826e1302233a4c2d6433ce73647b2&source=constructorLink)
 
-📍 На карте:
+🗺 [Карта оклейки Изюмки](https://yandex.ru/maps/?um=constructor%3Ae21cf183b42d2793d0054779c87e1f35786507e87af56ed8c7df5e0b339c2ec2&source=constructorLink)
+
+📍 На картам:
 • Места последних сигналов
 • Территория оклейки
 • Предполагаемое направление движения Изюмки по сигналам 
