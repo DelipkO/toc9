@@ -143,8 +143,12 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id in MAP_MESSAGES:
         map_text = MAP_MESSAGES[chat_id].format(username=user.username or user.first_name)
     else:
-        # Сообщение по умолчанию для других разрешенных чатов
-        map_text = f"@{user.username or user.first_name}, вот карта сигналов:\n\n" + MAP_MESSAGES[-1003181939785].split('\n\n', 1)[1]
+        # Сообщение для чатов без отдельной настройки карты
+        map_text = f"""@{user.username or user.first_name}, для этого чата пока нет отдельной карты оклейки 😔
+
+Мои хозяева еще добавили карту оклейки для искомого пушистика :(
+
+Если вам нужна карта для вашего поиска, обратитесь к @AnnaMelostnaya"""
     
     await context.bot.send_message(
         chat_id=chat_id,
