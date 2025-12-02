@@ -18,6 +18,11 @@ YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -1003179224036]
 NOTIFICATION_CHAT_ID = -1003231802185
 
+# ID пользователей для отслеживания команд "ищи" и для пересылки сообщений
+SEARCH_USERS = [1288551587, 1144271314, 1385605251, 287305832]
+FORWARD_TO_USER_ID = 1288551587  # Куда пересылать сообщения "ищи"
+PRIVATE_MESSAGE_FORWARD_TO = 287305832  # Куда пересылать личные сообщения
+
 # Словарь для хранения уникальных сообщений карты для каждого чата
 MAP_MESSAGES = {
     -1003181939785: """@{username}, вот актуальная карта:
@@ -148,7 +153,7 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Сообщение для чатов без отдельной настройки карты
         map_text = f"""@{user.username or user.first_name}, для этого чата пока нет отдельной карты оклейки 😔
 
-Мои хозяева еще добавили карту оклейки для искомого пушистика :(
+Мои хозяева еще не добавили карту оклейки для искомого пушистика :(
 
 Если вам нужна карта для вашего поиска, обратитесь к @AnnaMelostnaya"""
     
@@ -202,11 +207,69 @@ def extract_coordinates(text):
     
     return None
 
+async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает команду 'Мухтар, ищи!' от указанных пользователей"""
+    if not await is_allowed_chat(update):
+        return False
+    
+    user_id = update.message.from_user.id
+    text = update.message.text.strip().lower()
+    
+    # Паттерн для поиска точной фразы "Мухтар, ищи!" с возможными вариациями
+    # Учитываем регистр, пробелы, знаки препинания и возможные дополнительные символы
+    pattern = r'^\s*мухтар[,\s]*ищи[!\s]*$'
+    
+    # Проверяем, что сообщение от нужного пользователя и содержит точную фразу
+    if user_id in SEARCH_USERS and re.match(pattern, text):
+        try:
+            # Отвечаем в чате
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Команду понял, уже выполняю"
+            )
+            
+            # Пересылаем сообщение указанному пользователю
+            await context.bot.forward_message(
+                chat_id=FORWARD_TO_USER_ID,
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
+            
+            # Также отправляем текст сообщения для удобства
+            sender_name = update.message.from_user.username or update.message.from_user.first_name
+            chat_title = update.effective_chat.title or "Без названия"
+            
+            notification_text = (
+                f"🔍 Команда 'ищи' от @{sender_name}\n"
+                f"Чат: {chat_title}\n"
+                f"Текст: {update.message.text}"
+            )
+            
+            await context.bot.send_message(
+                chat_id=FORWARD_TO_USER_ID,
+                text=notification_text
+            )
+            
+        except Exception as e:
+            print(f"Ошибка при обработке команды 'ищи': {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ Произошла ошибка при обработке команды"
+            )
+        
+        return True  # Сообщение обработано как команда "ищи"
+    
+    return False  # Сообщение не является командой "ищи"
+
 async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик координат в сообщениях"""
     # Проверяем разрешенный чат
     if not await is_allowed_chat(update):
         return
+    
+    # Сначала проверяем, не является ли сообщение командой "ищи"
+    if await handle_search_command(update, context):
+        return  # Если это команда "ищи", не обрабатываем как координаты
     
     text = update.message.text
     
@@ -235,6 +298,29 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
             chat_id=update.effective_chat.id,
             text=message_text
         )
+
+async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Пересылает личные сообщения боту указанному пользователю"""
+    if update.message.chat.type == 'private':
+        try:
+            # Пересылаем сообщение
+            await context.bot.forward_message(
+                chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
+            
+            # Отправляем подтверждение отправителю
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="✅ Ваше сообщение переслано администратору!"
+            )
+        except Exception as e:
+            print(f"Ошибка при пересылке личного сообщения: {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ Произошла ошибка при обработке вашего сообщения."
+            )
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
@@ -271,7 +357,12 @@ def main():
     # Добавляем обработчики команд и сообщений
     app.add_handler(CommandHandler("privet_toc9", privet_toc9))
     app.add_handler(CommandHandler("map", map_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_coordinates))
+    
+    # Обработчик личных сообщений (должен быть до общего обработчика текста)
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_private_message))
+    
+    # Обработчик текстовых сообщений в группах (координаты и команда "ищи")
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.ChatType.PRIVATE, handle_coordinates))
     
     # Обработчик добавления бота в группы
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_chat_members))
