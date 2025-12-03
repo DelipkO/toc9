@@ -17,13 +17,15 @@ from collections import defaultdict
 # Я 287305832
 # Женя 1645755515
 
+# Рута -1003414483458
+
 # Токен бота
 token = os.getenv('BOT_TOKEN', '8553241979:AAFPTPqcWs0f2EUoCSQI1vde_ZK9FakqfYM')
 # API ключ для Yandex Geocoder
 YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 
 # ID разрешенных чатов и чата для уведомлений
-ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -1003179224036]
+ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -1003179224036, -1003414483458]
 NOTIFICATION_CHAT_ID = -1003231802185
 TOC_CHAT_ID = -1003231802185  # Чат, для которого используем toc99999 в ссылке и отключаем команду "ищи"
 IZUMKI_CHAT_ID = -1003179224036  # Чат Изюмки, для которого используем poisk_izumki в ссылке
