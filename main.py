@@ -213,15 +213,32 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
         return False
     
     user_id = update.message.from_user.id
-    text = update.message.text.strip().lower()
+    text = update.message.text
     
-    # Паттерн для поиска точной фразы "Мухтар, ищи!" с возможными вариациями
-    # Учитываем регистр, пробелы, знаки препинания и возможные дополнительные символы
-    pattern = r'^\s*мухтар[,\s]*ищи[!\s]*$'
+    # Проверяем, что сообщение от нужного пользователя
+    if user_id not in SEARCH_USERS:
+        return False
     
-    # Проверяем, что сообщение от нужного пользователя и содержит точную фразу
-    if user_id in SEARCH_USERS and re.match(pattern, text):
+    # Очищаем текст: приводим к нижнему регистру и удаляем лишние пробелы
+    clean_text = ' '.join(text.split()).lower()
+    
+    # Убираем возможное упоминание бота в начале (если есть)
+    if clean_text.startswith('@'):
+        # Удаляем первое слово (упоминание)
+        parts = clean_text.split(' ', 1)
+        if len(parts) > 1:
+            clean_text = parts[1]
+        else:
+            clean_text = ''
+    
+    # Теперь проверяем, содержит ли текст точную фразу
+    # Используем более гибкое регулярное выражение
+    pattern = r'^мухтар[,\s]*ищи[!\s]*$'
+    
+    if re.match(pattern, clean_text):
         try:
+            print(f"Найдена команда 'ищи' от пользователя {user_id} в чате {update.effective_chat.id}")
+            
             # Отвечаем в чате
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -242,7 +259,7 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             notification_text = (
                 f"🔍 Команда 'ищи' от @{sender_name}\n"
                 f"Чат: {chat_title}\n"
-                f"Текст: {update.message.text}"
+                f"Текст: {text}"
             )
             
             await context.bot.send_message(
@@ -303,24 +320,14 @@ async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_T
     """Пересылает личные сообщения боту указанному пользователю"""
     if update.message.chat.type == 'private':
         try:
-            # Пересылаем сообщение
+            # Пересылаем сообщение без отправки подтверждения отправителю
             await context.bot.forward_message(
                 chat_id=PRIVATE_MESSAGE_FORWARD_TO,
                 from_chat_id=update.effective_chat.id,
                 message_id=update.message.message_id
             )
-            
-            # Отправляем подтверждение отправителю
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="✅ Ваше сообщение переслано администратору!"
-            )
         except Exception as e:
             print(f"Ошибка при пересылке личного сообщения: {e}")
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="❌ Произошла ошибка при обработке вашего сообщения."
-            )
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
