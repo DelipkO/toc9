@@ -27,6 +27,7 @@ ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -10031792240
 NOTIFICATION_CHAT_ID = -1003231802185
 TOC_CHAT_ID = -1003231802185  # Чат, для которого используем toc99999 в ссылке и отключаем команду "ищи"
 IZUMKI_CHAT_ID = -1003179224036  # Чат Изюмки, для которого используем poisk_izumki в ссылке
+RUTY_CHAT_ID = -1003414483458  # Чат поиска Руты, для которого используем poiskruty в ссылке
 
 # ID пользователей для отслеживания команд "ищи" и для пересылки сообщений
 SEARCH_USERS = [1288551587, 1144271314, 1385605251, 287305832]  # Яна, Сабина, Катя, Я
@@ -275,6 +276,9 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             elif chat_id == IZUMKI_CHAT_ID:
                 # Для чата Изюмки используем poisk_izumki
                 message_link = f"https://t.me/poisk_izumki/{message_id}"
+            elif chat_id == RUTY_CHAT_ID:
+                # Для чата поиска Руты используем poiskruty
+                message_link = f"https://t.me/poiskruty/{message_id}"
             else:
                 # Для остальных чатов используем реальный ID (убираем -100)
                 chat_id_clean = str(abs(chat_id))
