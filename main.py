@@ -255,14 +255,15 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             sender_name = update.message.from_user.username or update.message.from_user.first_name
             chat_title = update.effective_chat.title or "Без названия"
             
-            # Формируем ссылку на сообщение
-            # Для публичных чатов и групп можно создать ссылку
-            message_link = f"https://t.me/c/{str(abs(update.effective_chat.id))[4:]}/{update.message.message_id}"
+            # Формируем ссылку на сообщение с toc99999 вместо ID чата
+            # Используем toc99999 вместо реального ID чата
+            message_link = f"https://t.me/c/toc99999/{update.message.message_id}"
             
-            # Формируем уведомление в новом формате с toc99999 вместо названия чата
+            # Формируем уведомление в новом формате
+            # Используем реальное название чата в тексте
             notification_text = (
                 f"🔍 @{sender_name} просит добавить новые точки на карту\n"
-                f"Чат: toc99999\n"
+                f"Чат: {chat_title}\n"
                 f"Ссылка: {message_link}"
             )
             
