@@ -257,7 +257,7 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             
             # Формируем ссылку на сообщение с toc99999 вместо ID чата
             # Используем toc99999 вместо реального ID чата
-            message_link = f"https://t.me/c/toc99999/{update.message.message_id}"
+            message_link = f"https://t.me/toc99999/{update.message.message_id}"
             
             # Формируем уведомление в новом формате
             # Используем реальное название чата в тексте
