@@ -25,7 +25,7 @@ YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 # ID разрешенных чатов и чата для уведомлений
 ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -1003179224036, -1003414483458]
 NOTIFICATION_CHAT_ID = -1003231802185
-TOC_CHAT_ID = -1003231802185  # Чат, для которого используем toc99999 в ссылке и отключаем команду "ищи"
+TESTING_CHAT_ID = -1003231802185  # Чат для тестирования, где бот не реагирует на команду "ищи"
 IZUMKI_CHAT_ID = -1003179224036  # Чат Изюмки, для которого используем poisk_izumki в ссылке
 RUTY_CHAT_ID = -1003414483458  # Чат поиска Руты, для которого используем poiskruty в ссылке
 
@@ -162,7 +162,7 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         map_text = MAP_MESSAGES[chat_id].format(username=user.username or user.first_name)
     else:
         # Сообщение для чатов без отдельной настройки карты
-        map_text = f"""@{user.username or user.first_name}, для этого чата пока нет отдельной карты оклейки 😔
+        map_text = f"""@{user.username or user.first_name}, для этого чата пока нет отдельной карта оклейки 😔
 
 Мои хозяева еще не добавили карту оклейки для искомого пушистика :(
 
@@ -225,8 +225,8 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
     
     chat_id = update.effective_chat.id
     
-    # Для чата -1003231802185 отключаем команду "Мухтар, ищи!"
-    if chat_id == TOC_CHAT_ID:
+    # Для чата тестирования (-1003231802185) отключаем команду "Мухтар, ищи!"
+    if chat_id == TESTING_CHAT_ID:
         return False
     
     user_id = update.message.from_user.id
@@ -255,10 +255,10 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             print(f"Найдена команда 'ищи' от пользователя {user_id} в чате {update.effective_chat.id}")
             
-            # Отвечаем в чате
+            # Отвечаем в чате с новой фразой
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text="Команду понял, уже выполняю"
+                text="🗺️✨Новые точки на карте! Иду по следу!🐕🐾"
             )
             
             # Получаем информацию для уведомления
@@ -270,10 +270,7 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             message_id = update.message.message_id
             
             # Формируем ссылку в зависимости от чата
-            if chat_id == TOC_CHAT_ID:
-                # Для чата TOC используем toc99999
-                message_link = f"https://t.me/toc99999/{message_id}"
-            elif chat_id == IZUMKI_CHAT_ID:
+            if chat_id == IZUMKI_CHAT_ID:
                 # Для чата Изюмки используем poisk_izumki
                 message_link = f"https://t.me/poisk_izumki/{message_id}"
             elif chat_id == RUTY_CHAT_ID:
