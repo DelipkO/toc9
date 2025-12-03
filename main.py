@@ -25,7 +25,7 @@ YANDEX_GEOCODER_API_KEY = '0e4655c5-eb37-4f51-8272-f307172a2054'
 # ID разрешенных чатов и чата для уведомлений
 ALLOWED_CHAT_IDS = [-1003181939785, -1002960326030, -1003231802185, -1003179224036]
 NOTIFICATION_CHAT_ID = -1003231802185
-TOC_CHAT_ID = -1003231802185  # Чат, для которого используем toc99999 в ссылке
+TOC_CHAT_ID = -1003231802185  # Чат, для которого используем toc99999 в ссылке и отключаем команду "ищи"
 
 # ID пользователей для отслеживания команд "ищи" и для пересылки сообщений
 SEARCH_USERS = [1288551587, 1144271314, 1385605251, 287305832]  # Яна, Сабина, Катя, Я
@@ -219,6 +219,12 @@ def extract_coordinates(text):
 async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает команду 'Мухтар, ищи!' от указанных пользователей"""
     if not await is_allowed_chat(update):
+        return False
+    
+    chat_id = update.effective_chat.id
+    
+    # Для чата -1003231802185 отключаем команду "Мухтар, ищи!"
+    if chat_id == TOC_CHAT_ID:
         return False
     
     user_id = update.message.from_user.id
