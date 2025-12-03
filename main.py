@@ -314,7 +314,7 @@ async def handle_tracker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверяем, содержит ли текст слово "трекер"
     if 'трекер' in text:
         try:
-            tracker_text = """[Видеоинструкция: Как пользоваться геотрекером](https://t.me/2773274461/34)
+            tracker_text = """[Видеоинструкция: Как пользоваться геотрекером](https://t.me/c/2773274461/34)
 
 Всё показано шаг за шагом! Очень рекомендую."""
             
