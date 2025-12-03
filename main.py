@@ -210,7 +210,7 @@ def extract_coordinates(text):
             if -90 <= lat <= 90 and -180 <= lon <= 180:
                 return lat, lon
         except ValueError:
-            pass
+        pass
     
     return None
 
@@ -259,10 +259,10 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             # Для публичных чатов и групп можно создать ссылку
             message_link = f"https://t.me/c/{str(abs(update.effective_chat.id))[4:]}/{update.message.message_id}"
             
-            # Формируем уведомление в новом формате
+            # Формируем уведомление в новом формате с toc99999 вместо названия чата
             notification_text = (
                 f"🔍 @{sender_name} просит добавить новые точки на карту\n"
-                f"Чат: {chat_title}\n"
+                f"Чат: toc99999\n"
                 f"Ссылка: {message_link}"
             )
             
