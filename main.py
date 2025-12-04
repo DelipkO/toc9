@@ -432,6 +432,41 @@ async def process_coordinates_in_message(update: Update, context: ContextTypes.D
     
     return False  # Координаты не найдены
 
+async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает личные сообщения боту"""
+    if update.message.chat.type == 'private':
+        try:
+            # Если сообщение от пользователя 287305832 и оно переслано от другого пользователя
+            if update.message.from_user.id == PRIVATE_MESSAGE_FORWARD_TO and update.message.forward_from:
+                # Получаем информацию о пересланном отправителе
+                forward_from = update.message.forward_from
+                user_id = forward_from.id
+                username = forward_from.username
+                first_name = forward_from.first_name
+                last_name = forward_from.last_name
+                
+                # Формируем сообщение с информацией
+                info_message = (
+                    f"Информация об отправителе пересланного сообщения:\n"
+                    f"ID: {user_id}\n"
+                    f"Имя: {first_name} {last_name if last_name else ''}\n"
+                    f"Username: @{username if username else 'нет'}"
+                )
+                
+                await context.bot.send_message(
+                    chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                    text=info_message
+                )
+            else:
+                # Во всех остальных случаях пересылаем сообщение пользователю 287305832
+                await context.bot.forward_message(
+                    chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                    from_chat_id=update.effective_chat.id,
+                    message_id=update.message.message_id
+                )
+        except Exception as e:
+            print(f"Ошибка при обработке личного сообщения: {e}")
+
 async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик всех текстовых сообщений в группах"""
     # Проверяем разрешенный чат
@@ -456,19 +491,6 @@ async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     # Проверяем координаты в сообщении
     await process_coordinates_in_message(update, context)
-
-async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Пересылает личные сообщения боту указанному пользователю"""
-    if update.message.chat.type == 'private':
-        try:
-            # Пересылаем сообщение без отправки подтверждения отправителю
-            await context.bot.forward_message(
-                chat_id=PRIVATE_MESSAGE_FORWARD_TO,
-                from_chat_id=update.effective_chat.id,
-                message_id=update.message.message_id
-            )
-        except Exception as e:
-            print(f"Ошибка при пересылке личного сообщения: {e}")
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
