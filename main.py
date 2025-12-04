@@ -81,6 +81,22 @@ MAP_MESSAGES = {
 💬 Выходя на оклейку, не забывайте включать геотрекер. Он нарисует ваш путь движения, а я с @AnnaMelostnaya внесем его в карту поиска"""
 }
 
+def generate_message_link(chat_id: int, message_id: int) -> str:
+    """Генерирует ссылку на сообщение в зависимости от чата"""
+    if chat_id == IZUMKI_CHAT_ID:
+        # Для чата Изюмки используем poisk_izumki
+        return f"https://t.me/poisk_izumki/{message_id}"
+    elif chat_id == RUTY_CHAT_ID:
+        # Для чата поиска Руты используем poiskruty
+        return f"https://t.me/poiskruty/{message_id}"
+    elif chat_id == DUBAI_CHAT_ID:
+        # Для чата поиска Дубая используем poisdubai
+        return f"https://t.me/poisdubai/{message_id}"
+    else:
+        # Для остальных чатов используем реальный ID (убираем -100)
+        chat_id_clean = str(abs(chat_id))
+        return f"https://t.me/{chat_id_clean}/{message_id}"
+
 async def is_allowed_chat(update: Update) -> bool:
     """Проверяет, разрешен ли чат для выполнения команд"""
     chat_id = update.effective_chat.id
@@ -276,23 +292,7 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
             chat_title = update.effective_chat.title or "Без названия"
             
             # Формируем ссылку на сообщение
-            chat_id = update.effective_chat.id
-            message_id = update.message.message_id
-            
-            # Формируем ссылку в зависимости от чата
-            if chat_id == IZUMKI_CHAT_ID:
-                # Для чата Изюмки используем poisk_izumki
-                message_link = f"https://t.me/poisk_izumki/{message_id}"
-            elif chat_id == RUTY_CHAT_ID:
-                # Для чата поиска Руты используем poiskruty
-                message_link = f"https://t.me/poiskruty/{message_id}"
-            elif chat_id == DUBAI_CHAT_ID:
-                # Для чата поиска Дубая используем poisdubai
-                message_link = f"https://t.me/poisdubai/{message_id}"
-            else:
-                # Для остальных чатов используем реальный ID (убираем -100)
-                chat_id_clean = str(abs(chat_id))
-                message_link = f"https://t.me/{chat_id_clean}/{message_id}"
+            message_link = generate_message_link(update.effective_chat.id, update.message.message_id)
             
             # Формируем уведомление в новом формате
             notification_text = (
@@ -349,7 +349,7 @@ async def handle_tracker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return False  # Сообщение не содержит трекер
 
 async def handle_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Обрабатывает ключевые слова (оклеено, сигнал, обклеено) и пересылает сообщение"""
+    """Обрабатывает ключевые слова (оклеено, сигнал, обклеено) и отправляет уведомление"""
     if not await is_allowed_chat(update):
         return False
     
@@ -369,14 +369,29 @@ async def handle_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         try:
             print(f"Найдены ключевые слова {found_keywords} в сообщении от {update.message.from_user.id} в чате {update.effective_chat.id}")
             
-            # Пересылаем сообщение Анне (226098861)
-            await context.bot.forward_message(
-                chat_id=FORWARD_TO_USER_ID,  # Анна
-                from_chat_id=update.effective_chat.id,
-                message_id=update.message.message_id
+            # Получаем информацию о чате
+            chat_title = update.effective_chat.title or "Без названия"
+            sender_name = update.message.from_user.username or update.message.from_user.first_name
+            
+            # Формируем ссылку на сообщение
+            message_link = generate_message_link(update.effective_chat.id, update.message.message_id)
+            
+            # Формируем уведомление для Анны
+            keyword_type = "сигнал" if any(k in ['сигнал', 'сигналы', 'сигналов', 'сигнала', 'сигналу', 'сигналом'] for k in found_keywords) else "оклейка"
+            
+            notification_text = (
+                f"🔍 @{sender_name} сообщает о {keyword_type}\n"
+                f"Чат: {chat_title}\n"
+                f"Ссылка: {message_link}"
             )
             
-            print(f"Сообщение с ключевыми словами переслано Анне (ID: {FORWARD_TO_USER_ID})")
+            # Отправляем уведомление Анне
+            await context.bot.send_message(
+                chat_id=FORWARD_TO_USER_ID,
+                text=notification_text
+            )
+            
+            print(f"Уведомление о ключевых словах отправлено Анне (ID: {FORWARD_TO_USER_ID})")
             
             # Проверяем, есть ли среди ключевых слов слово "сигнал"
             signal_keywords = ['сигнал', 'сигналы', 'сигналов', 'сигнала', 'сигналу', 'сигналом']
@@ -393,7 +408,7 @@ async def handle_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             return True
             
         except Exception as e:
-            print(f"Ошибка при пересылке сообщения с ключевым словом: {e}")
+            print(f"Ошибка при обработке сообщения с ключевым словом: {e}")
         
         return True  # Сообщение обработано, если ошибка - останавливаем обработку
     
@@ -432,41 +447,6 @@ async def process_coordinates_in_message(update: Update, context: ContextTypes.D
     
     return False  # Координаты не найдены
 
-async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обрабатывает личные сообщения боту"""
-    if update.message.chat.type == 'private':
-        try:
-            # Если сообщение от пользователя 287305832 и оно переслано от другого пользователя
-            if update.message.from_user.id == PRIVATE_MESSAGE_FORWARD_TO and update.message.forward_from:
-                # Получаем информацию о пересланном отправителе
-                forward_from = update.message.forward_from
-                user_id = forward_from.id
-                username = forward_from.username
-                first_name = forward_from.first_name
-                last_name = forward_from.last_name
-                
-                # Формируем сообщение с информацией
-                info_message = (
-                    f"Информация об отправителе пересланного сообщения:\n"
-                    f"ID: {user_id}\n"
-                    f"Имя: {first_name} {last_name if last_name else ''}\n"
-                    f"Username: @{username if username else 'нет'}"
-                )
-                
-                await context.bot.send_message(
-                    chat_id=PRIVATE_MESSAGE_FORWARD_TO,
-                    text=info_message
-                )
-            else:
-                # Во всех остальных случаях пересылаем сообщение пользователю 287305832
-                await context.bot.forward_message(
-                    chat_id=PRIVATE_MESSAGE_FORWARD_TO,
-                    from_chat_id=update.effective_chat.id,
-                    message_id=update.message.message_id
-                )
-        except Exception as e:
-            print(f"Ошибка при обработке личного сообщения: {e}")
-
 async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик всех текстовых сообщений в группах"""
     # Проверяем разрешенный чат
@@ -491,6 +471,19 @@ async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     # Проверяем координаты в сообщении
     await process_coordinates_in_message(update, context)
+
+async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Пересылает личные сообщения боту указанному пользователю"""
+    if update.message.chat.type == 'private':
+        try:
+            # Пересылаем сообщение без отправки подтверждения отправителю
+            await context.bot.forward_message(
+                chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
+        except Exception as e:
+            print(f"Ошибка при пересылке личного сообщения: {e}")
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
