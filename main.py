@@ -218,6 +218,57 @@ def extract_coordinates(text):
     
     return None
 
+async def handle_new_search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает команду 'Мухтар, новый поиск' для тестового чата"""
+    chat_id = update.effective_chat.id
+    
+    # Проверяем, что это тестовый чат
+    if chat_id != TESTING_CHAT_ID:
+        return False
+    
+    text = update.message.text.strip()
+    
+    # Приводим текст к нижнему регистру для проверки
+    clean_text = text.lower()
+    
+    # Убираем возможное упоминание бота в начале (если есть)
+    if clean_text.startswith('@'):
+        # Удаляем первое слово (упоминание)
+        parts = clean_text.split(' ', 1)
+        if len(parts) > 1:
+            clean_text = parts[1].strip()
+        else:
+            clean_text = ''
+    
+    # Проверяем, содержит ли текст фразу "мухтар, новый поиск" с возможными вариациями
+    pattern = r'^мухтар[,\s]*новый[_\s]*поиск[!\s]*$'
+    
+    if re.match(pattern, clean_text):
+        try:
+            print(f"Найдена команда 'новый поиск' в тестовом чате от пользователя {update.message.from_user.id}")
+            
+            # Отвечаем в чате с запрошенной фразой
+            response_text = (
+                "Опять новый поиск? Я устал, но если покормишь мою подругу, я готов!\n"
+                "Пришли в ответ видео, как Шармель кушает котлетку и я сразу выйду на поиск"
+            )
+            
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=response_text
+            )
+            
+        except Exception as e:
+            print(f"Ошибка при обработке команды 'новый поиск': {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ Произошла ошибка при обработке команды"
+            )
+        
+        return True  # Сообщение обработано как команда "новый поиск"
+    
+    return False  # Сообщение не является командой "новый поиск"
+
 async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает команду 'Мухтар, ищи!' от указанных пользователей"""
     if not await is_allowed_chat(update):
@@ -341,7 +392,11 @@ async def handle_coordinates(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not await is_allowed_chat(update):
         return
     
-    # Сначала проверяем, не является ли сообщение командой "ищи"
+    # Сначала проверяем, не является ли сообщение командой "новый поиск" для тестового чата
+    if await handle_new_search_command(update, context):
+        return  # Если это команда "новый поиск", не обрабатываем дальше
+    
+    # Проверяем, не является ли сообщение командой "ищи"
     if await handle_search_command(update, context):
         return  # Если это команда "ищи", не обрабатываем как координаты
     
@@ -429,7 +484,7 @@ def main():
     # Обработчик личных сообщений (должен быть до общего обработчика текста)
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_private_message))
     
-    # Обработчик текстовых сообщений в группах (координаты, команда "ищи" и трекер)
+    # Обработчик текстовых сообщений в группах (координаты, команда "ищи", "новый поиск" и трекер)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.ChatType.PRIVATE, handle_coordinates))
     
     # Обработчик добавления бота в группы
