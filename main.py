@@ -234,7 +234,7 @@ def extract_coordinates(text):
             if -90 <= lat <= 90 and -180 <= lon <= 180:
                 return lat, lon
         except ValueError:
-            pass
+        pass
     
     return None
 
@@ -348,21 +348,59 @@ async def handle_tracker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     return False  # Сообщение не содержит трекер
 
-async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик всех текстовых сообщений в группах"""
-    # Проверяем разрешенный чат
+async def handle_keywords(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Обрабатывает ключевые слова (оклеено, сигнал, обклеено) и пересылает сообщение"""
     if not await is_allowed_chat(update):
-        return
+        return False
     
-    # Сначала проверяем, не является ли сообщение командой "ищи"
-    if await handle_search_command(update, context):
-        return  # Если это команда "ищи", не обрабатываем дальше
+    text = update.message.text.lower()
     
-    # Проверяем, не содержит ли сообщение слово "трекер"
-    if await handle_tracker(update, context):
-        return  # Если это трекер, не обрабатываем как координаты
+    # Список ключевых слов и их возможных форм
+    keywords = [
+        'оклеен', 'оклеено', 'оклеена', 'оклеены', 'оклеенной', 'оклеенные',
+        'сигнал', 'сигналы', 'сигналов', 'сигнала', 'сигналу', 'сигналом',
+        'обклеен', 'обклеено', 'обклеена', 'обклеены', 'обклеенной', 'обклеенные'
+    ]
     
-    # Проверяем координаты
+    # Проверяем, содержит ли текст любое из ключевых слов
+    found_keywords = [keyword for keyword in keywords if keyword in text]
+    
+    if found_keywords:
+        try:
+            print(f"Найдены ключевые слова {found_keywords} в сообщении от {update.message.from_user.id} в чате {update.effective_chat.id}")
+            
+            # Пересылаем сообщение Анне (226098861)
+            await context.bot.forward_message(
+                chat_id=FORWARD_TO_USER_ID,  # Анна
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
+            
+            print(f"Сообщение с ключевыми словами переслано Анне (ID: {FORWARD_TO_USER_ID})")
+            
+            # Проверяем, есть ли среди ключевых слов слово "сигнал"
+            signal_keywords = ['сигнал', 'сигналы', 'сигналов', 'сигнала', 'сигналу', 'сигналом']
+            is_signal = any(signal_keyword in found_keywords for signal_keyword in signal_keywords)
+            
+            # Если есть слово "сигнал", возвращаем False, чтобы продолжить обработку координатов
+            if is_signal:
+                print("Сообщение содержит слово 'сигнал', продолжаем обработку координатов")
+                return False
+            
+            # Если нет слова "сигнал", но есть другие ключевые слова (оклеено, обклеено)
+            # возвращаем True, чтобы остановить дальнейшую обработку (не отвечать в чате)
+            print("Сообщение содержит слова 'оклеено' или 'обклеено', останавливаем обработку")
+            return True
+            
+        except Exception as e:
+            print(f"Ошибка при пересылке сообщения с ключевым словом: {e}")
+        
+        return True  # Сообщение обработано, если ошибка - останавливаем обработку
+    
+    return False  # Ключевые слова не найдены
+
+async def process_coordinates_in_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Обрабатывает координаты в сообщении и отправляет результат в чат"""
     text = update.message.text
     
     # Извлекаем координаты из текста
@@ -390,6 +428,34 @@ async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE
             chat_id=update.effective_chat.id,
             text=message_text
         )
+        return True  # Координаты обработаны
+    
+    return False  # Координаты не найдены
+
+async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик всех текстовых сообщений в группах"""
+    # Проверяем разрешенный чат
+    if not await is_allowed_chat(update):
+        return
+    
+    # Сначала проверяем, не является ли сообщение командой "ищи"
+    if await handle_search_command(update, context):
+        return  # Если это команда "ищи", не обрабатываем дальше
+    
+    # Проверяем, не содержит ли сообщение слово "трекер"
+    if await handle_tracker(update, context):
+        return  # Если это трекер, не обрабатываем дальше
+    
+    # Проверяем ключевые слова (оклеено, сигнал, обклеено)
+    should_stop_processing = await handle_keywords(update, context)
+    
+    # Если функция handle_keywords вернула True (найдены слова оклеено/обклеено), 
+    # то останавливаем обработку и не отвечаем в чате
+    if should_stop_processing:
+        return
+    
+    # Проверяем координаты в сообщении
+    await process_coordinates_in_message(update, context)
 
 async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Пересылает личные сообщения боту указанному пользователю"""
@@ -443,7 +509,7 @@ def main():
     # Обработчик личных сообщений (должен быть до общего обработчика текста)
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, handle_private_message))
     
-    # Обработчик всех текстовых сообщений в группах (включая команду "ищи", трекер и координаты)
+    # Обработчик всех текстовых сообщений в группах (включая команду "ищи", трекер, ключевые слова и координаты)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.ChatType.PRIVATE, handle_all_messages))
     
     # Обработчик добавления бота в группы
