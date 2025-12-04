@@ -234,7 +234,7 @@ def extract_coordinates(text):
             if -90 <= lat <= 90 and -180 <= lon <= 180:
                 return lat, lon
         except ValueError:
-        pass
+            pass
     
     return None
 
