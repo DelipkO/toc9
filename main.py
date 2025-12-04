@@ -238,28 +238,18 @@ async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TY
         return False
     
     user_id = update.message.from_user.id
-    text = update.message.text.strip()
     
     # Проверяем, что сообщение от нужного пользователя
     if user_id not in SEARCH_USERS:
         return False
     
-    # Приводим текст к нижнему регистру для проверки
-    clean_text = text.lower()
+    text = update.message.text.strip().lower()
     
-    # Убираем возможное упоминание бота в начале (если есть)
-    if clean_text.startswith('@'):
-        # Удаляем первое слово (упоминание)
-        parts = clean_text.split(' ', 1)
-        if len(parts) > 1:
-            clean_text = parts[1].strip()
-        else:
-            clean_text = ''
+    # Проверяем, содержит ли текст фразу "мухтар, ищи" (с любыми знаками препинания и регистром)
+    # Используем регулярное выражение, которое ищет фразу в любом месте текста
+    pattern = r'мухтар[,\s]*ищи'
     
-    # Проверяем, содержит ли текст точную фразу "мухтар, ищи!" с возможными вариациями
-    pattern = r'^мухтар[,\s]*ищи[!\s]*$'
-    
-    if re.match(pattern, clean_text):
+    if re.search(pattern, text):
         try:
             print(f"Найдена команда 'ищи' от пользователя {user_id} в чате {update.effective_chat.id}")
             
