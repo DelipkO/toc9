@@ -447,6 +447,93 @@ async def process_coordinates_in_message(update: Update, context: ContextTypes.D
     
     return False  # Координаты не найдены
 
+async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает личные сообщения боту"""
+    if update.message.chat.type == 'private':
+        user_id = update.message.from_user.id
+        text = update.message.text
+        
+        # Проверяем, если сообщение от пользователя 287305832
+        if user_id == PRIVATE_MESSAGE_FORWARD_TO:
+            # Пытаемся разобрать сообщение как команду отправки в чат
+            lines = text.strip().split('\n', 1)
+            if len(lines) >= 2:
+                chat_identifier = lines[0].strip()
+                message_text = lines[1].strip()
+                
+                try:
+                    # Пытаемся понять, что это за идентификатор чата
+                    if chat_identifier.startswith('-100'):
+                        # Это числовой ID чата
+                        chat_id = int(chat_identifier)
+                    elif chat_identifier.startswith('@'):
+                        # Это username чата
+                        # В Telegram API нужно использовать username без @
+                        username = chat_identifier[1:]
+                        # Отправляем сообщение по username
+                        await context.bot.send_message(
+                            chat_id=username,
+                            text=message_text
+                        )
+                        # Отправляем подтверждение пользователю
+                        await context.bot.send_message(
+                            chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                            text=f"✅ Сообщение отправлено в чат {chat_identifier}"
+                        )
+                        return
+                    else:
+                        # Пробуем как числовой ID
+                        chat_id = int(chat_identifier)
+                    
+                    # Отправляем сообщение в чат
+                    await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=message_text
+                    )
+                    
+                    # Отправляем подтверждение пользователю
+                    await context.bot.send_message(
+                        chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                        text=f"✅ Сообщение отправлено в чат {chat_identifier}"
+                    )
+                    
+                except ValueError as e:
+                    # Не удалось преобразовать в число
+                    await context.bot.send_message(
+                        chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                        text=f"❌ Ошибка: Некорректный формат ID чата. Используйте числовой ID или @username"
+                    )
+                except Exception as e:
+                    # Другие ошибки (бот не в чате, нет прав и т.д.)
+                    error_message = str(e)
+                    if "Chat not found" in error_message or "chat not found" in error_message:
+                        await context.bot.send_message(
+                            chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                            text=f"❌ Ошибка: Чат {chat_identifier} не найден или бот не добавлен в него"
+                        )
+                    elif "Forbidden" in error_message or "bot was kicked" in error_message:
+                        await context.bot.send_message(
+                            chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                            text=f"❌ Ошибка: Бот не имеет доступа к чату {chat_identifier} или был удален из него"
+                        )
+                    else:
+                        await context.bot.send_message(
+                            chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                            text=f"❌ Ошибка при отправке сообщения: {error_message}"
+                        )
+                return
+        
+        # Для всех остальных пользователей или сообщений не в формате команды
+        # пересылаем сообщение пользователю 287305832
+        try:
+            await context.bot.forward_message(
+                chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
+        except Exception as e:
+            print(f"Ошибка при пересылке личного сообщения: {e}")
+
 async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик всех текстовых сообщений в группах"""
     # Проверяем разрешенный чат
@@ -471,19 +558,6 @@ async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     # Проверяем координаты в сообщении
     await process_coordinates_in_message(update, context)
-
-async def handle_private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Пересылает личные сообщения боту указанному пользователю"""
-    if update.message.chat.type == 'private':
-        try:
-            # Пересылаем сообщение без отправки подтверждения отправителю
-            await context.bot.forward_message(
-                chat_id=PRIVATE_MESSAGE_FORWARD_TO,
-                from_chat_id=update.effective_chat.id,
-                message_id=update.message.message_id
-            )
-        except Exception as e:
-            print(f"Ошибка при пересылке личного сообщения: {e}")
 
 async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обрабатывает добавление бота в новые группы"""
