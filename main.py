@@ -165,17 +165,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Меня зовут Мухтар, помогаю в поиске собак
 Мы будем рады помощи, ищем этих собак:
 
-1. [Дубай](t.me/poisdubai)
-2. [Изюмка](t.me/poisk_izumki)
-3. [Рута](t.me/poiskruty)
+1. [Дубай] (t.me/poisdubai)
+2. [Изюмкa] (t.me/poisk_izumki)
+3. [Рута] (t.me/poiskruty)
 
-Если у вас есть вопросы или предложения, пишите @Udashka8 @ldinkais @AnnaMelostnaya @Sabina_F, мы всё рассмотрим"""
+Если у вас есть вопросы или предложения, пишите @Udashka8 @ldinkais @AnnaMelostnaya @Sabina_F , мы всё рассмотрим"""
         
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=start_text,
-            parse_mode='MarkdownV2',
-            disable_web_page_preview=True
+            text=start_text
         )
         
         # Отправляем уведомление пользователю 287305832 о том, кто запросил /start
@@ -247,13 +245,10 @@ async def map_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Если вам нужна карта для вашего поиска, обратитесь к @AnnaMelostnaya"""
     
-    # Экранируем символы для MarkdownV2
-    map_text = map_text.replace('_', '\\_').replace('.', '\\.').replace('-', '\\-').replace('!', '\\!')
-    
     await context.bot.send_message(
         chat_id=chat_id,
         text=map_text,
-        parse_mode='MarkdownV2',
+        parse_mode='Markdown',
         disable_web_page_preview=True
     )
 
@@ -374,15 +369,14 @@ async def handle_tracker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверяем, содержит ли текст слово "трекер"
     if 'трекер' in text:
         try:
-            # Экранируем символы для MarkdownV2
-            tracker_text = """[Видеоинструкция: Как пользоваться геотрекером](https://t\\.me/c/2773274461/34)
+            tracker_text = """[Видеоинструкция: Как пользоваться геотрекером](https://t.me/c/2773274461/34)
 
-Всё показано шаг за шагом\\! Очень рекомендую\\."""
+Всё показано шаг за шагом! Очень рекомендую."""
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=tracker_text,
-                parse_mode='MarkdownV2',
+                parse_mode='Markdown',
                 disable_web_page_preview=True
             )
             
