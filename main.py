@@ -155,14 +155,19 @@ def get_address_from_coordinates(lat: float, lon: float) -> str:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start в личных сообщениях"""
     if update.message.chat.type == 'private':
+        user = update.message.from_user
+        user_id = user.id
+        username = user.username or user.first_name
+        
+        # Отправляем приветственное сообщение пользователю
         start_text = """Здравствуйте! 
 
 Меня зовут Мухтар, помогаю в поиске собак
-Мы будем рады помощи, ищем этих собак
+Мы будем рады помощи, ищем этих собак:
 
-1. Дубай (ссылка на текст t.me/poisdubai)
-2. Изюмка (ссылка на текст t.me/poisk_izumki)
-3. Рута (ссылка на текст t.me/poiskruty)
+1. [Дубай] (t.me/poisdubai)
+2. [Изюмкa] (t.me/poisk_izumki)
+3. [Рута] (t.me/poiskruty)
 
 Если у вас есть вопросы или предложения, пишите @Udashka8 @ldinkais @AnnaMelostnaya @Sabina_F , мы всё рассмотрим"""
         
@@ -170,6 +175,23 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=update.effective_chat.id,
             text=start_text
         )
+        
+        # Отправляем уведомление пользователю 287305832 о том, кто запросил /start
+        notification_text = (
+            f"👤 Кто-то запросил команду /start\n"
+            f"ID пользователя: {user_id}\n"
+            f"Имя: {user.first_name} {user.last_name or ''}\n"
+            f"Username: @{username}"
+        )
+        
+        try:
+            await context.bot.send_message(
+                chat_id=PRIVATE_MESSAGE_FORWARD_TO,
+                text=notification_text
+            )
+            print(f"Отправлено уведомление о /start от пользователя {user_id}")
+        except Exception as e:
+            print(f"Ошибка при отправке уведомления о /start: {e}")
 
 async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
