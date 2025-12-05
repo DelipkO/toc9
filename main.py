@@ -165,15 +165,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Меня зовут Мухтар, помогаю в поиске собак
 Мы будем рады помощи, ищем этих собак:
 
-1. [Дубай] (t.me/poisdubai)
-2. [Изюмкa] (t.me/poisk_izumki)
-3. [Рута] (t.me/poiskruty)
+1. [Дубай](t.me/poisdubai)
+2. [Изюмкa](t.me/poisk_izumki)
+3. [Рута](t.me/poiskruty)
 
 Если у вас есть вопросы или предложения, пишите @Udashka8 @ldinkais @AnnaMelostnaya @Sabina_F , мы всё рассмотрим"""
         
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=start_text
+            text=start_text,
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
         
         # Отправляем уведомление пользователю 287305832 о том, кто запросил /start
