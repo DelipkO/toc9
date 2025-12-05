@@ -152,6 +152,25 @@ def get_address_from_coordinates(lat: float, lon: float) -> str:
     except Exception as e:
         return f"Ошибка при получении адреса: {str(e)}"
 
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start в личных сообщениях"""
+    if update.message.chat.type == 'private':
+        start_text = """Здравствуйте! 
+
+Меня зовут Мухтар, помогаю в поиске собак
+Мы будем рады помощи, ищем этих собак
+
+1. Дубай (ссылка на текст t.me/poisdubai)
+2. Изюмка (ссылка на текст t.me/poisk_izumki)
+3. Рута (ссылка на текст t.me/poiskruty)
+
+Если у вас есть вопросы или предложения, пишите @Udashka8 @ldinkais @AnnaMelostnaya @Sabina_F , мы всё рассмотрим"""
+        
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=start_text
+        )
+
 async def privet_toc9(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Приветственное сообщение бота"""
     # Проверяем разрешенный чат
@@ -592,6 +611,7 @@ def main():
     app.add_error_handler(error_handler)
     
     # Добавляем обработчики команд и сообщений
+    app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("privet_toc9", privet_toc9))
     app.add_handler(CommandHandler("map", map_command))
     
