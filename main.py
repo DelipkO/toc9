@@ -295,6 +295,18 @@ def extract_coordinates(text):
         except ValueError:
             pass
     
+    # Паттерн 4: "55.752965, 37.998079" (два числа через запятую без пробела)
+    pattern4 = r'(-?\d+\.\d+),(-?\d+\.\d+)'
+    match4 = re.search(pattern4, clean_text)
+    if match4:
+        try:
+            lat = float(match4.group(1))
+            lon = float(match4.group(2))
+            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                return lat, lon
+        except ValueError:
+            pass
+    
     return None
 
 async def handle_search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -482,21 +494,17 @@ async def process_coordinates_in_message(update: Update, context: ContextTypes.D
             address = None
         
         # Формируем сообщение
-        message_text = f"📍 Найдены координаты\\!\n\n"
+        message_text = f"📍 Найдены координаты!\n\n"
         
         if address and "Ошибка" not in address and "не найден" not in address:
             message_text += f"🏠 Адрес: {address}\n\n"
         
         message_text += f"📡 Координаты: {lat:.6f}, {lon:.6f}\n"
-        message_text += f"🗺️ Ссылка на Яндекс\\.Карты: {yandex_map_url}"
-        
-        # Экранируем специальные символы для MarkdownV2
-        message_text = message_text.replace('.', '\\.').replace('-', '\\-').replace('!', '\\!')
+        message_text += f"🗺️ Ссылка на Яндекс.Карты: {yandex_map_url}"
         
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=message_text,
-            parse_mode='MarkdownV2'
+            text=message_text
         )
         return True  # Координаты обработаны
     
